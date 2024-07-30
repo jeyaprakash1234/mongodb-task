@@ -1,0 +1,103 @@
+1. Find all the topics and tasks which are thought in the month of October
+db.topics.find({
+  date: {
+    $gte: ISODate("2020-10-01"),
+    $lt: ISODate("2020-11-01")
+  }
+})
+
+db.tasks.find({
+  date: {
+    $gte: ISODate("2020-10-01"),
+    $lt: ISODate("2020-11-01")
+  }
+})
+--------------------------------------------------------------------------
+
+
+2. Find all the company drives which appeared between 15 oct-2020 and 31-oct-2020
+
+db.company_drives.find({
+  date: {
+    $gte: ISODate("2020-10-15"),
+    $lt: ISODate("2020-11-01")
+  }
+})
+
+--------------------------------------------------------------------------------------------
+3. Find all the company drives and students who are appeared for the placement.
+db.company_drives.aggregate([
+  {
+    $lookup: {
+      from: "users",
+      localField: "students",
+      foreignField: "_id",
+      as: "student_details"
+    }
+  }
+])
+
+------------------------------------------------------------------------------------------
+
+4. Find the number of problems solved by the user in codekata
+
+db.codekata.aggregate([
+  {
+    $group: {
+      _id: "$user_id",
+      total_problems_solved: { $sum: "$problems_solved" }
+    }
+  }
+])
+
+--------------------------------------------------------------------------------------------
+5. Find all the mentors with who has the mentee's count more than 15
+
+db.mentors.find({
+  $where: "this.mentees.length > 15"
+})
+--------------------------------------------------------------------------------------------------------------
+6. Find the number of users who are absent and task is not submitted between 15 oct-2020 and 31-oct-2020
+
+db.attendance.aggregate([
+  {
+    $match: {
+      date: {
+        $gte: ISODate("2020-10-15"),
+        $lt: ISODate("2020-11-01")
+      },
+      status: "absent"
+    }
+  },
+  {
+    $lookup: {
+      from: "tasks",
+      let: { userId: "$user_id" },
+      pipeline: [
+        {
+          $match: {
+            $expr: {
+              $and: [
+                { $gte: ["$date", ISODate("2020-10-15")] },
+                { $lt: ["$date", ISODate("2020-11-01")] },
+                { $ne: ["$submitted_by", "$$userId"] }
+              ]
+            }
+          }
+        }
+      ],
+      as: "tasks_not_submitted"
+    }
+  },
+  {
+    $match: {
+      "tasks_not_submitted.0": { $exists: true }
+    }
+  },
+  {
+    $group: {
+      _id: "$user_id",
+      count: { $sum: 1 }
+    }
+  }
+])
